@@ -2,6 +2,7 @@
 #include <mbedtls/sha256.h>
 #include <sstream>
 #include <iomanip>
+#include "FilesystemUtility/src/FilesystemUtility.h"
 
 void AccessPermissionManager::open(const String &sharingRegistryPath)
 {
@@ -12,6 +13,9 @@ void AccessPermissionManager::open(const String &sharingRegistryPath)
 
 bool AccessPermissionManager::canUserAccessFile(const String &username, const String &path)
 {
+	if (FSUtil::isChildOf("/" + username, path))
+		return true;
+
 	JSONVar sharingIdResult = _sharingRegistry.execute("SELECT sharing_id FROM files_registry WHERE path=?", path);
 	if (sharingIdResult.length() == -1)
 		return false;
@@ -43,7 +47,7 @@ void AccessPermissionManager::shareFileWithUser(const String &path, const String
 void AccessPermissionManager::unshareFileWithUser(const String &path, const String &username)
 {
 	JSONVar sharingIdResult = _sharingRegistry.execute("SELECT sharing_id FROM files_registry WHERE path=?", path);
-	
+
 	if (sharingIdResult.length() == -1)
 		throw std::runtime_error("file not shared with user");
 

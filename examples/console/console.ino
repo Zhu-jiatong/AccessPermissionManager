@@ -16,19 +16,8 @@ void setup()
 			SD.remove("/access_permissions.db");
 
 		permissions.open("/sd/access_permissions.db");
-	}
-	catch (const std::exception &e)
-	{
-		Serial.println(e.what());
-		while (true)
-			;
-	}
-}
 
-void loop()
-{
-	try
-	{
+		// test begins here
 		permissions.shareFileWithUser("/test.txt", "user1");
 		permissions.shareFileWithUser("/test.txt", "user2");
 		permissions.shareFileWithUser("/test.txt", "user3");
@@ -38,6 +27,8 @@ void loop()
 		Serial.println(permissions.canUserAccessFile("user3", "/test.txt"));
 		Serial.println(permissions.canUserAccessFile("user4", "/test.txt"));
 		Serial.println(permissions.canUserAccessFile("user1", "/test2.txt"));
+		Serial.println(permissions.canUserAccessFile("user2", "/user2/test2.txt"));
+		Serial.println(permissions.canUserAccessFile("user2", "/user1/test2.txt"));
 
 		std::vector<String> users = permissions.getUsersWithAccessToFile("/test.txt");
 		for (const auto &user : users)
@@ -47,6 +38,6 @@ void loop()
 	{
 		Serial.println(e.what());
 	}
-	while (true)
-		;
 }
+
+void loop() {}

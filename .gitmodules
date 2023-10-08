@@ -1,3 +1,6 @@
 [submodule "src/SQLiteDatabaseManager"]
 	path = src/SQLiteDatabaseManager
 	url = ../SQLiteDatabaseManager
+[submodule "src/FilesystemUtility"]
+	path = src/FilesystemUtility
+	url = ../FilesystemUtility
