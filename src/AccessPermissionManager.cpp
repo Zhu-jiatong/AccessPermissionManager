@@ -83,6 +83,18 @@ std::vector<String> AccessPermissionManager::getUsersWithAccessToFile(const Stri
 	return users;
 }
 
+std::vector<String> AccessPermissionManager::getFilesSharedWithUser(const String &username)
+{
+	JSONVar result = _sharingRegistry.execute("SELECT path FROM files_registry WHERE sharing_id IN (SELECT sharing_id FROM users_registry WHERE username=?)", username);
+	if (result.length() == -1)
+		return std::vector<String>();
+
+	std::vector<String> files;
+	for (int i = 0; i < result.length(); i++)
+		files.push_back(result[i]["path"]);
+	return files;
+}
+
 String AccessPermissionManager::generateSharingId(const String &user, const String &path)
 {
 	uint8_t sharingId[32];

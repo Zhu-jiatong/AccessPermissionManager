@@ -19,6 +19,7 @@ void setup()
 
 		// test begins here
 		permissions.shareFileWithUser("/test.txt", "user1");
+		permissions.shareFileWithUser("/testSpecial.txt", "user1");
 		permissions.shareFileWithUser("/test.txt", "user2");
 		permissions.shareFileWithUser("/test.txt", "user3");
 
@@ -33,6 +34,10 @@ void setup()
 		std::vector<String> users = permissions.getUsersWithAccessToFile("/test.txt");
 		for (const auto &user : users)
 			Serial.println(user);
+
+		std::vector<String> files = permissions.getFilesSharedWithUser("user1");
+		for (const auto &file : files)
+			Serial.println(file);
 	}
 	catch (const std::exception &e)
 	{
