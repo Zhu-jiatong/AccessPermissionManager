@@ -7,73 +7,61 @@
 void AccessPermissionManager::open(const String &sharingRegistryPath)
 {
 	_sharingRegistry.open(sharingRegistryPath);
-	_sharingRegistry.execute("CREATE TABLE IF NOT EXISTS users_registry (username TEXT NOT NULL, sharing_id TEXT NOT NULL)");
-	_sharingRegistry.execute("CREATE TABLE IF NOT EXISTS files_registry (sharing_id TEXT NOT NULL PRIMARY KEY, path TEXT NOT NULL UNIQUE) WITHOUT ROWID");
+	_sharingRegistry.execute("CREATE TABLE IF NOT EXISTS sharing_registry ("
+							 "username TEXT NOT NULL,"
+							 "path TEXT NOT NULL,"
+							 "permissions_flags INTEGER NOT NULL)");
 }
 
-bool AccessPermissionManager::canUserAccessFile(const String &username, const String &path)
+bool AccessPermissionManager::canUserAccessFile(const String &username, const String &path, FilePermissions permissions)
 {
+	// user owns the file
 	if (FSUtil::isChildOf("/" + username, path))
 		return true;
 
-	JSONVar sharingIdResult = _sharingRegistry.execute("SELECT sharing_id FROM files_registry WHERE path=?", path);
-	if (sharingIdResult.length() == -1)
-		return false;
-
-	String sharingId = sharingIdResult[0]["sharing_id"];
-
-	JSONVar result = _sharingRegistry.execute("SELECT * FROM users_registry WHERE username=? AND sharing_id=?", username, sharingId);
+	// user is shared the file
+	JSONVar result = _sharingRegistry.execute("SELECT 1 "
+											  "FROM sharing_registry "
+											  "WHERE username = ? AND path = ? AND permissions_flags & :flags = :flags",
+											  username,
+											  path,
+											  static_cast<int>(permissions.to_ulong()));
 	if (result.length() == -1)
 		return false;
 	return true;
 }
 
-void AccessPermissionManager::shareFileWithUser(const String &path, const String &username)
+void AccessPermissionManager::shareFileWithUser(const String &path, const String &username, FilePermissions permissions)
 {
-	JSONVar sharingIdResult = _sharingRegistry.execute("SELECT sharing_id FROM files_registry WHERE path=?", path);
-	if (sharingIdResult.length() == -1)
-	{
-		String sharingId = generateSharingId(username, path);
-		_sharingRegistry.execute("INSERT INTO files_registry VALUES (?, ?)", sharingId, path);
-		_sharingRegistry.execute("INSERT INTO users_registry VALUES (?, ?)", username, sharingId);
-	}
-	else
-	{
-		String sharingId = sharingIdResult[0]["sharing_id"];
-		_sharingRegistry.execute("INSERT INTO users_registry VALUES (?, ?)", username, sharingId);
-	}
+	_sharingRegistry.execute("INSERT INTO sharing_registry "
+							 "VALUES (:username, :path, :permissions_flags)",
+							 username,
+							 path,
+							 static_cast<int>(permissions.to_ulong()));
 }
 
 void AccessPermissionManager::unshareFileWithUser(const String &path, const String &username)
 {
-	JSONVar sharingIdResult = _sharingRegistry.execute("SELECT sharing_id FROM files_registry WHERE path=?", path);
-
-	if (sharingIdResult.length() == -1)
-		throw std::runtime_error("file not shared with user");
-
-	String sharingId = sharingIdResult[0]["sharing_id"];
-	_sharingRegistry.execute("DELETE FROM users_registry WHERE username=? AND sharing_id=?", username, sharingId);
+	_sharingRegistry.execute("DELETE FROM sharing_registry "
+							 "WHERE username = ? AND path = ?",
+							 username,
+							 path);
 }
 
 void AccessPermissionManager::unshareFile(const String &path)
 {
-	JSONVar sharingIdResult = _sharingRegistry.execute("SELECT sharing_id FROM files_registry WHERE path=?", path);
-	if (sharingIdResult.length() == -1)
-		throw std::runtime_error("file not shared");
-
-	String sharingId = sharingIdResult[0]["sharing_id"];
-	_sharingRegistry.execute("DELETE FROM users_registry WHERE sharing_id=?", sharingId);
-	_sharingRegistry.execute("DELETE FROM files_registry WHERE path=?", path);
+	_sharingRegistry.execute("DELETE FROM sharing_registry "
+							 "WHERE path = ?",
+							 path);
 }
 
-std::vector<String> AccessPermissionManager::getUsersWithAccessToFile(const String &path)
+std::vector<String> AccessPermissionManager::getUsersWithAccessToFile(const String &path, FilePermissions permissions)
 {
-	JSONVar sharingIdResult = _sharingRegistry.execute("SELECT sharing_id FROM files_registry WHERE path=?", path);
-	if (sharingIdResult.length() == -1)
-		return std::vector<String>();
-
-	String sharingId = sharingIdResult[0]["sharing_id"];
-	JSONVar result = _sharingRegistry.execute("SELECT username FROM users_registry WHERE sharing_id=?", sharingId);
+	JSONVar result = _sharingRegistry.execute("SELECT username "
+											  "FROM sharing_registry "
+											  "WHERE path = ? AND permissions_flags & :flags = :flags",
+											  path,
+											  static_cast<int>(permissions.to_ulong()));
 	if (result.length() == -1)
 		return std::vector<String>();
 
@@ -83,9 +71,14 @@ std::vector<String> AccessPermissionManager::getUsersWithAccessToFile(const Stri
 	return users;
 }
 
-std::vector<String> AccessPermissionManager::getFilesSharedWithUser(const String &username)
+std::vector<String> AccessPermissionManager::getFilesSharedWithUser(const String &username, FilePermissions permissions)
 {
-	JSONVar result = _sharingRegistry.execute("SELECT path FROM files_registry WHERE sharing_id IN (SELECT sharing_id FROM users_registry WHERE username=?)", username);
+	JSONVar result = _sharingRegistry.execute("SELECT path "
+											  "FROM sharing_registry "
+											  "WHERE username = ? AND permissions_flags & :flags = :flags",
+											  username,
+											  static_cast<int>(permissions.to_ulong()));
+
 	if (result.length() == -1)
 		return std::vector<String>();
 
@@ -98,7 +91,7 @@ std::vector<String> AccessPermissionManager::getFilesSharedWithUser(const String
 String AccessPermissionManager::generateSharingId(const String &user, const String &path)
 {
 	uint8_t sharingId[32];
-	String input = user + path + esp_random();
+	String input = time(0) + path + esp_random();
 
 	int result = mbedtls_sha256_ret(
 		reinterpret_cast<const uint8_t *>(input.c_str()),
