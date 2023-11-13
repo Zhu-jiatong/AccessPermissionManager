@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <vector>
 #include <bitset>
-#include "SQLiteDatabaseManager/src/DatabaseConnection.h"
+#include <DatabaseConnection.h>
 
 using FilePermissions = std::bitset<2>;
 

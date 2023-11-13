@@ -2,7 +2,7 @@
 #include <mbedtls/sha256.h>
 #include <sstream>
 #include <iomanip>
-#include "FilesystemUtility/src/FilesystemUtility.h"
+#include <FilesystemUtility.h>
 
 void AccessPermissionManager::open(const String &sharingRegistryPath)
 {
